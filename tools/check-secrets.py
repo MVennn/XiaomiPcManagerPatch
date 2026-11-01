@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# 本仓分叉变体；上游参考：ClientTriage/tools/check-secrets.py（2026-11-01 bug 奇偶同步）
 """公开仓敏感信息扫描：凭据 + 本机路径 + 内网 IP + 真实邮箱。
 
 用法：
     python tools/check-secrets.py            # 扫描已跟踪文件
-    python tools/check-secrets.py --all      # 扫描工作树（含未跟踪；跳过 .gitignore 命中的文件）
+    python tools/check-secrets.py --all      # 已跟踪 + 未跟踪一起扫（遵循 .gitignore）
 
-退出码：0 通过 / 1 发现疑似敏感信息。
+退出码：0 通过 / 1 发现疑似敏感信息 / 2 自身故障（git 不可用或失败）。
 本仓红线：安装日志（pcc_install_log.txt 等，见 .gitignore）不入库；正文不出现
 本机用户目录、内网 IP、真实邮箱与任何凭据 —— 首个 commit 就是对外可见的起点，
 提交前后各扫一遍。
@@ -72,8 +73,9 @@ TRUNCATED_PATH = re.compile(
 
 
 # 占位用户名：示例文件里的 C:/Users/You/... 是给用户照着改的模板，不是本机路径。
+# 反斜杠写法同样要认；旧正则只认正斜杠，且 Your 后内嵌的字面 0x08（本意 \b）随此重写移除。
 PLACEHOLDER_USER = re.compile(
-    r"[A-Za-z]:[\/]Users[\/](?:You|User|Your|<[^>]+>|[^\/\s<>]*[一-鿿])", re.I)
+    r"[A-Za-z]:[\\/]Users[\\/](?:You|User|<[^>]+>|[^\\/\s<>]*[一-鿿])", re.I)
 
 
 def is_doc_file(rel: str) -> bool:
@@ -95,42 +97,23 @@ def tracked_files() -> list[str]:
     return [x for x in out.stdout.splitlines() if x.strip()]
 
 
-def walk_files() -> list[str]:
-    files = []
-    for dp, dn, fn in os.walk(ROOT):
-        dn[:] = [d for d in dn if d not in SKIP_DIRS]
-        for f in fn:
-            files.append(os.path.relpath(os.path.join(dp, f), ROOT))
-    return files
-
-
-def gitignored(rels: list[str]) -> set[str]:
-    """--all 模式跳过 .gitignore 命中的文件：它们按约定不会入库，扫了也是噪音。
-
-    注：check-ignore 的 --stdin 在 Windows 下经 subprocess 调用会静默失灵
-    （同样的输入命令行直传就正常），所以按批用 argv 传路径。
-    """
-    dropped: set[str] = set()
-    rels = [r.replace("\\", "/") for r in rels]
-    try:
-        for i in range(0, len(rels), 200):
-            batch = rels[i:i + 200]
-            out = subprocess.run(
-                ["git", "check-ignore", "--no-index", "--"] + batch,
-                cwd=ROOT, capture_output=True, text=True)
-            if out.returncode == 0:
-                dropped.update(out.stdout.splitlines())
-    except FileNotFoundError:
-        return set()
-    return dropped
+def untracked_files() -> list[str]:
+    # --all 的「未跟踪」遵循 .gitignore：忽略规则交给 git 判定，
+    # gitignore 排除的本地文件（安装日志等）不进扫描。
+    out = subprocess.run(
+        ["git", "ls-files", "--others", "--exclude-standard"],
+        cwd=ROOT, capture_output=True, text=True)
+    if out.returncode != 0:
+        print("✗ git ls-files --others 失败：" + (out.stderr or "").strip())
+        raise SystemExit(2)
+    return [x for x in out.stdout.splitlines() if x.strip()]
 
 
 def main() -> int:
-    files = tracked_files()
     if "--all" in sys.argv:
-        files = walk_files()
-        drop = gitignored(files)
-        files = [f for f in files if f.replace("\\", "/") not in drop]
+        files = sorted(set(tracked_files()) | set(untracked_files()))
+    else:
+        files = tracked_files()
     bad = []
     for rel in files:
         if os.path.splitext(rel)[1].lower() in SKIP_EXT:
@@ -144,20 +127,23 @@ def main() -> int:
             with open(os.path.join(ROOT, rel), encoding="utf-8", errors="replace") as fh:
                 for lineno, line in enumerate(fh, 1):
                     for name, pat in PATTERNS:
-                        m = pat.search(line)
-                        if not m:
-                            continue
-                        # 占位符只豁免它自己所在的那一段，不再整行放行 ——
-                        # 示例与真值写在同一行时，真值仍会被报出来。
-                        if PLACEHOLDER.search(m.group(0)):
-                            continue
-                        if name == "本机用户目录":
-                            # 截断形式的描述性引用，或占位用户名（C:/Users/You/）
-                            if TRUNCATED_PATH.search(line):
+                        # finditer：一行里每个命中段都单独过豁免，不整行放行 ——
+                        # search 只看首个命中，同一行里第二个真值路径会漏。
+                        for m in pat.finditer(line):
+                            # 占位符只豁免它自己所在的那一段，不再整行放行 ——
+                            # 示例与真值写在同一行时，真值仍会被报出来。
+                            if PLACEHOLDER.search(m.group(0)):
                                 continue
-                            if PLACEHOLDER_USER.search(line):
-                                continue
-                        bad.append((rel, lineno, name, line.strip()[:120]))
+                            if name == "本机用户目录":
+                                # 只豁免命中片段本身：截断形式（C:/Users/<用户名>\...）或
+                                # 占位用户名（C:/Users/You）。同一行里并排写下的
+                                # 完整真实路径仍会被报出来。
+                                frag = line[m.start():m.start() + 120]
+                                if allow_truncated and TRUNCATED_PATH.match(frag):
+                                    continue
+                                if PLACEHOLDER_USER.match(frag):
+                                    continue
+                            bad.append((rel, lineno, name, line.strip()[:120]))
         except OSError:
             continue
 
