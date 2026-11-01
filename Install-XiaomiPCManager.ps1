@@ -32,6 +32,44 @@ function Log($msg) {
   Add-Content -Path $log -Value $line -Encoding utf8
 }
 
+# 在 $ErrorActionPreference='Stop' 下调用原生命令并把输出并入日志。
+# PS 5.1 的坑：2>&1 会把 stderr 首行包装成终止错误，脚本会在 $LASTEXITCODE
+# 检查之前直接中断，所以这里临时降为 Continue。
+function Invoke-PyLogged {
+  param([string]$Py, [string]$Script, [string[]]$ScriptArgs)
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    & $Py $Script @ScriptArgs 2>&1 | ForEach-Object { Log $_ }
+    return $LASTEXITCODE
+  } finally {
+    $ErrorActionPreference = $prev
+  }
+}
+
+# 真正试运行一次再认数：WindowsApps 的 python.exe 存根能通过 Get-Command 和
+# Test-Path，但执行只会弹商店（退出码非 0），必须验证解释器可用
+function Test-PythonRunnable([string]$Exe) {
+  $prev = $ErrorActionPreference
+  $ErrorActionPreference = 'Continue'
+  try {
+    & $Exe -c "import sys; sys.exit(0)" 2>$null
+    return ($LASTEXITCODE -eq 0)
+  } catch {
+    return $false
+  } finally {
+    $ErrorActionPreference = $prev
+  }
+}
+
+# 版本目录按版本号数值比较：字符串排序会把 10.x 排在 9.x 之后
+function Get-LatestVersionDir([string]$Root) {
+  return Get-ChildItem $Root -Directory -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match '^\d+(\.\d+)+$' } |
+    Sort-Object { [version]$_.Name } -Descending |
+    Select-Object -First 1
+}
+
 # ---- 自提权 ----
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
@@ -39,14 +77,22 @@ if (-not $isAdmin) {
   if ($Installer) { $argsList += @('-Installer', "`"$Installer`"") }
   if ($ModelOnly) { $argsList += '-ModelOnly' }
   if ($NoLaunch) { $argsList += '-NoLaunch' }
-  Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $argsList | Out-Null
+  try {
+    Start-Process -FilePath 'powershell.exe' -Verb RunAs -ArgumentList $argsList | Out-Null
+  } catch {
+    Log "提权被取消或启动失败: $($_.Exception.Message)"
+    exit 1
+  }
   exit
 }
 
 # ---- Python ----
-$python = (Get-Command python -ErrorAction SilentlyContinue).Source
-if (-not $python) { $python = (Get-Command py -ErrorAction SilentlyContinue).Source }
-if (-not $python -or -not (Test-Path $python)) { Log "找不到 Python，请先安装 Python 3 并加入 PATH"; exit 1 }
+$python = $null
+foreach ($cand in 'python', 'py') {
+  $src = (Get-Command $cand -ErrorAction SilentlyContinue).Source
+  if ($src -and (Test-PythonRunnable $src)) { $python = $src; break }
+}
+if (-not $python) { Log "找不到可用的 Python 3（python / py 都不可用），请先安装并加入 PATH"; exit 1 }
 if (-not (Test-Path $py)) { Log "找不到 xpm_patch.py"; exit 1 }
 
 Log "==== 开始 ===="
@@ -66,19 +112,19 @@ if (-not $ModelOnly) {
   # 1) 打补丁
   $patched = Join-Path $here ((Split-Path -Leaf $Installer) -replace '\.exe$', '_patched.exe')
   Log "正在打补丁 -> $patched"
-  & $python $py patch-installer $Installer -o $patched 2>&1 | ForEach-Object { Log $_ }
-  if ($LASTEXITCODE -ne 0) { Log "打补丁失败"; exit 1 }
+  $rc = Invoke-PyLogged $python $py @('patch-installer', $Installer, '-o', $patched)
+  if ($rc -ne 0) { Log "打补丁失败"; exit 1 }
 
   # 2) 静默安装
   Log "开始静默安装（可能需要几分钟）..."
   $p = Start-Process -FilePath $patched -ArgumentList '/Silent' -Wait -PassThru
   Log "安装程序退出码: $($p.ExitCode)"
+  if ($p.ExitCode -ne 0) { Log "警告: 安装程序返回非零退出码，后续步骤可能不完整" }
 
   # 3) 等版本目录出现
-  $root = 'C:\Program Files\MI\XiaomiPCManager'
+  $v = $null
   for ($i = 0; $i -lt 30; $i++) {
-    $v = Get-ChildItem $root -Directory -ErrorAction SilentlyContinue |
-      Where-Object { $_.Name -match '^\d+(\.\d+)+$' } | Sort-Object Name -Descending | Select-Object -First 1
+    $v = Get-LatestVersionDir $root
     if ($v) { break }
     Start-Sleep -Seconds 2
   }
@@ -87,17 +133,21 @@ if (-not $ModelOnly) {
 
 # 4) 已安装目录补丁 + 运行时伪装
 Log "给已安装目录打补丁并写入运行时伪装..."
-& $python $py patch-installed 2>&1 | ForEach-Object { Log $_ }
+$rc = Invoke-PyLogged $python $py @('patch-installed')
+if ($rc -ne 0) { Log "已安装目录补丁失败"; exit 1 }
 
 # 4.5) 部署社区 WMI 伪装补丁（msimg32 代理，仅对加载 MiSmartShareDLL 的进程生效）
 $spoofDll = Join-Path $here 'wmi_spoof_msimg32.dll'
-$verDir = Get-ChildItem $root -Directory -ErrorAction SilentlyContinue |
-  Where-Object { $_.Name -match '^\d+(\.\d+)+$' } | Sort-Object Name -Descending | Select-Object -First 1
+$verDir = Get-LatestVersionDir $root
 if ((Test-Path $spoofDll) -and $verDir) {
   $msDir = Join-Path $verDir.FullName 'MiSmartShare'
   if (Test-Path $msDir) {
-    Copy-Item $spoofDll (Join-Path $msDir 'msimg32.dll') -Force
-    Log "已部署 WMI 伪装补丁: $msDir\msimg32.dll"
+    try {
+      Copy-Item $spoofDll (Join-Path $msDir 'msimg32.dll') -Force
+      Log "已部署 WMI 伪装补丁: $msDir\msimg32.dll"
+    } catch {
+      Log "部署 WMI 伪装补丁失败（文件被占用？可稍后手动复制）: $($_.Exception.Message)"
+    }
     $k = 'HKCU:\Software\SmartSharePatch'
     if (-not (Test-Path $k)) { New-Item -Path $k -Force | Out-Null }
     New-ItemProperty -Path $k -Name 'SpoofManufacturer' -Value 'XIAOMI' -PropertyType String -Force | Out-Null
@@ -121,7 +171,7 @@ if (Test-Path $svcKey) {
 # 4.65) 平板镜像：绕过“已连接其他显示设备”的多显示器检查
 $padGate = Join-Path $here 'padgate_patch.py'
 if (Test-Path $padGate) {
-  & $python $padGate apply 2>&1 | ForEach-Object { Log $_ }
+  $null = Invoke-PyLogged $python $padGate @('apply')
 } else {
   Log "未找到 padgate_patch.py，跳过平板镜像补丁"
 }
@@ -149,8 +199,7 @@ foreach ($svc in 'micont_service', 'DistributedService', 'XiaomiService', 'MiSer
 
 # 6) 启动应用
 if (-not $NoLaunch) {
-  $exe = Get-ChildItem 'C:\Program Files\MI\XiaomiPCManager' -Directory -ErrorAction SilentlyContinue |
-    Where-Object { $_.Name -match '^\d+(\.\d+)+$' } | Sort-Object Name -Descending | Select-Object -First 1
+  $exe = Get-LatestVersionDir $root
   if ($exe) {
     $app = Join-Path $exe.FullName 'XiaomiPCManager.exe'
     if (Test-Path $app) { Start-Process $app | Out-Null; Log "已启动应用" }
