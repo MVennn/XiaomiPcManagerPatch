@@ -143,16 +143,24 @@ RequestConnectPhysServer success ... target medium:20(p2p)
 
 # 已经装好了，只想恢复运行时机型伪装（更新后功能又失效时用这个）
 .\Install-XiaomiPCManager.ps1 -ModelOnly
+
+# 同上，但最后不自动拉起主程序
+.\Install-XiaomiPCManager.ps1 -ModelOnly -NoLaunch
 ```
 
-脚本会自动：
+脚本会自动（顺序执行）：
 
-1. 提权（UAC 静默）
-2. 用 `xpm_patch.py` 把本机型号写进安装包白名单（**字节长度不变**，不改程序代码）
-3. 生成 `*_patched.exe` 并静默安装（`/Silent`）
-4. 给已安装的 `Uninstall.exe` 打同样补丁（保证以后能卸载）
-5. 写入 `dummy_pc_model`（HKCU/HKLM、32/64 位视图各一份，最大化版本兼容）
-6. 重启相关服务并启动应用
+1. 提权（UAC 静默；取消提权则直接退出）
+2. 用 `xpm_patch.py` 把本机型号写进安装包白名单（**字节长度不变**，不改程序代码；
+   生成 `*_patched.exe`，原始安装包不改动）
+3. 静默安装补丁版（`/Silent`）
+4. 给已安装的 `Uninstall.exe` 打同样补丁（先备份为 `.bak`，保证以后能卸载），
+   并写入 `dummy_pc_model`（HKCU/HKLM、32/64 位视图各一份，最大化版本兼容）
+5. 部署 `wmi_spoof_msimg32.dll` 到 `<版本号>\MiSmartShare\` 并写 `SmartSharePatch` 配置
+6. 给 `micont_service` 的 `ImagePath` 追加 `--model=0`（通用 PC 模式）
+7. 运行 `padgate_patch.py apply`（平板镜像补丁；会自动结束占用进程）
+8. 写入 `ProductModel=TM2309` 并停用 `MiDeviceService`（避免它用真实型号覆盖）
+9. 重启相关服务并启动应用（加 `-NoLaunch` 只重启服务、不拉起主程序）
 
 日志写在同目录 `install_log.txt`。
 
