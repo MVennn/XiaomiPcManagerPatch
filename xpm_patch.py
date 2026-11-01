@@ -159,13 +159,34 @@ def patch_file_manifest(path, models, out_path=None):
     print("清单位置: 0x%x, 长度: %d" % (off, jlen))
     print("原白名单: %s" % (obj.get("support_tm_list")))
     new_bytes, spoof = patch_manifest_bytes(data[off:off + jlen], models)
-    patched = data[:off] + new_bytes + data[off + jlen:]
-    dst = out_path or path
-    if out_path:
-        shutil.copyfile(path, out_path)
-    with open(dst, "r+b") as f:
-        f.seek(off)
-        f.write(new_bytes)
+
+    same_target = (not out_path) or \
+        os.path.abspath(out_path) == os.path.abspath(path)
+    if same_target:
+        # 原地写回：必须先留一份原始备份，写入中断/失败才有回滚依据
+        # （patch_installed 调用前已备份过同名 .bak，这里会自动跳过）
+        bak = path + ".bak"
+        if not os.path.exists(bak):
+            shutil.copyfile(path, bak)
+            print("已备份: %s" % bak)
+        with open(path, "r+b") as f:
+            f.seek(off)
+            f.write(new_bytes)
+        dst = path
+    else:
+        # 输出到新文件：先写临时文件再原子替换，中断不会留下半个安装包
+        tmp = out_path + ".tmp"
+        try:
+            shutil.copyfile(path, tmp)
+            with open(tmp, "r+b") as f:
+                f.seek(off)
+                f.write(new_bytes)
+            os.replace(tmp, out_path)
+        except BaseException:
+            if os.path.exists(tmp):
+                os.remove(tmp)
+            raise
+        dst = out_path
     print("已写入: %s" % dst)
     print("本机型号: %s" % ", ".join(models))
     print("用于运行时伪装的机型代码: %s" % spoof)

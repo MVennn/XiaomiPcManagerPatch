@@ -135,10 +135,18 @@ def apply_patch(path):
         shutil.copy2(path, bak)
         print("已备份 -> %s" % bak)
     stop_holders()
+    # 写临时文件后原子替换：中断不会留下写了一半的 DLL（回滚仍走 .bak-padgate）
+    tmp = path + ".tmp-padgate"
     try:
-        with open(path, "wb") as f:
+        with open(tmp, "wb") as f:
             f.write(data)
+        os.replace(tmp, path)
     except PermissionError:
+        if os.path.exists(tmp):
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
         print("写入失败：文件被占用。请先退出小米电脑管家后重试（或以管理员身份运行）")
         return 4
     print("已写入：%s" % path)
