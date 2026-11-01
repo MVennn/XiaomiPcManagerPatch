@@ -7,6 +7,11 @@ install_log.txt
 *_patched.exe
 *.bak
 *.bak-padgate
+*.tmp
+*.tmp-padgate
+
+# ---- 任务断点文件（长任务续跑协议的工作文件，不入库）----
+PROGRESS.md
 
 # ---- 本机私有配置 ----
 config.local.*
