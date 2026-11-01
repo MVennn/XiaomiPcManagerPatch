@@ -1,6 +1,23 @@
 # 更新日志
 
+> **一句话**：本仓的开发者记录 —— 每个版本改了什么、为什么、怎么验。
+> 顶部的版本命名规则是**摘要**，**正本见 [docs/VERSIONING.md](docs/VERSIONING.md)**。
+
 本仓对外可见的重要变更记录在此。格式参考 Keep a Changelog。
+
+## [未发布]
+
+### Added
+
+- 门面对齐系列仓通用规则（对照 QQBotStack / WindowsRemoteOps 同款）：
+  - 根 `README.md` 重写为七段式门面；原 README 的实测记录**下沉不删除**——
+    定位过程与 A/B 对照进 `docs/RESEARCH.md`，注意事项进 `docs/PITFALLS.md`
+  - 新增 `docs/`（ARCHITECTURE / TOOLS / PITFALLS / RESEARCH / DOC-RULES / VERSIONING /
+    README 索引 / release-notes 模板）
+  - 新增 `CONTRIBUTING.md`、`SECURITY.md`、`NOTICE`、`AGENTS.md`
+  - 新增 `.github/ISSUE_TEMPLATE/`（bug_report / feature_request / config）与 CI（`ci.yml`）
+  - 新增 `assets/` 门面（icon.svg / logo.png / social-preview.png）与 `tools/make_social_preview.py`
+  - 新增 `tools/check-docs.py`（守卫分叉副本，与全系列奇偶同步）、`.gitattributes`
 
 ## [0.1.0] - 2026-11-01
 

@@ -1,0 +1,88 @@
+name: 问题反馈（Bug）
+description: 装不上、补丁没命中、投屏 / 平板镜像失败
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量把下面的信息填全，尤其是**出问题的是哪一层**与**输出原文**——
+        「装不上」「投不了屏」可能来自安装层、机型层、服务模式层或平板镜像补丁，
+        逐层排查比整段日志更容易定位。
+
+        反馈前先查 [docs/PITFALLS.md](https://github.com/MVennn/XiaomiPcManagerPatch/blob/main/docs/PITFALLS.md)
+        与 [docs/RESEARCH.md](https://github.com/MVennn/XiaomiPcManagerPatch/blob/main/docs/RESEARCH.md)（含平板镜像异常码对照表）。
+
+  - type: checkboxes
+    id: acknowledgment
+    attributes:
+      label: 反馈前确认
+      options:
+        - label: 我已知悉这套脚本会写注册表、改服务启动参数、给官方 DLL 打字节补丁，并了解 [docs/ARCHITECTURE.md](https://github.com/MVennn/XiaomiPcManagerPatch/blob/main/docs/ARCHITECTURE.md) 里的回退方式。
+          required: true
+        - label: 我已把机器名、用户名、内网 IP、序列号与安装日志原文抹掉，替换成 `<HOST-IP>` / `<HOST-NAME>` 等占位符。
+          required: true
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: 出问题的是哪一层
+      options:
+        - 安装层（安装包被拒 / 装不上）
+        - 机型层（装上了但互联功能不可用）
+        - 服务模式层（手机端远端确认失败 / remote reject）
+        - 平板镜像（dropToPad 报异常码）
+        - WMI 伪装 DLL
+        - 脚本本身（报错 / 退出码异常）
+        - 不确定
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 出了什么问题
+      description: |
+        现象 + 复现步骤：用的哪个脚本、预期结果与实际结果分别是什么。
+        平板镜像问题请附 App 弹出的**异常码**（对照表见 docs/RESEARCH.md §4）。
+      placeholder: |
+        例：
+        1. 执行 Install-XiaomiPCManager.ps1
+        2. 安装阶段报错退出
+        3. 预期：静默安装成功；实际：日志尾部显示白名单补丁未命中
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Windows 版本
+      description: 执行 `winver`，把版本号贴在这里
+      placeholder: "例：Windows 11 23H2 (22631.4169)"
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: 电脑管家版本
+      description: 安装目录名（`C:\Program Files\MI\XiaomiPCManager\` 下的版本号目录）
+      placeholder: "例：6.0.0.39"
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: 输出 / 报错原文
+      description: 把命令输出或 install_log.txt 相关片段贴进来，不要只截一行；贴前先脱敏
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 截图或补充信息（可选）
+      description: 硬件型号（网卡 / 显卡 / 主板）对定位很有帮助
+    validations:
+      required: false

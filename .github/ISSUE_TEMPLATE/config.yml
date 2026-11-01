@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 踩坑总汇
+    url: https://github.com/MVennn/XiaomiPcManagerPatch/blob/main/docs/PITFALLS.md
+    about: 按现象查根因与解法——装不上、功能失效、平板镜像异常码都在这里。
+  - name: 架构与边界
+    url: https://github.com/MVennn/XiaomiPcManagerPatch/blob/main/docs/ARCHITECTURE.md
+    about: 三层限制的原理、脚本会改机器哪些状态、怎么回退。

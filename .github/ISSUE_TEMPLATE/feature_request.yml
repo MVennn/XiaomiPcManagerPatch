@@ -1,0 +1,50 @@
+name: 功能建议
+description: 想要新版本适配、新补丁点或新的排查手段
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提建议前可以先翻翻已有的 Issue，并确认
+        [docs/TOOLS.md](https://github.com/MVennn/XiaomiPcManagerPatch/blob/main/docs/TOOLS.md)
+        与 [docs/ARCHITECTURE.md](https://github.com/MVennn/XiaomiPcManagerPatch/blob/main/docs/ARCHITECTURE.md)
+        里没有现成能力或明确不做的事项。
+
+  - type: textarea
+    id: scenario
+    attributes:
+      label: 什么场景不顺手
+      description: |
+        先说场景再说想法——「想做什么事，现在卡在哪一步，报了什么错」。
+      placeholder: |
+        例：
+        电脑管家更新到 6.1 后 padgate 特征码不命中（status 显示 not-found），
+        想要一个能按版本自动选特征码的机制。
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望的效果（可选）
+      description: 希望新增脚本、扩展现有参数，还是只补文档判据？
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: 范围确认
+      options:
+        - label: 这个建议遵守本仓边界——字节等长补丁、不分发小米安装包、仓库不存安装日志与机器信息。
+          required: true
+        - label: 我知悉补丁需要真机验证，愿意在自己的机器上配合验证。
+          required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息（可选）
+      description: 相关命令、日志片段（脱敏后）、Windows 与电脑管家版本等
+    validations:
+      required: false

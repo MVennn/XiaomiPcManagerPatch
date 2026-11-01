@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: 静态检查
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Python 语法
+        run: python3 -c "import ast,glob; [ast.parse(open(f,encoding='utf-8').read(), f) for f in glob.glob('**/*.py', recursive=True)]"
+
+      # PowerShell 5.1 读无 BOM 的 UTF-8 会按 ANSI 解码，中文会破坏语法：
+      # 含非 ASCII 字节的 .ps1 必须带 UTF-8 BOM；tools/*.ps1 一律纯 ASCII。
+      - name: PowerShell 脚本编码检查
+        run: |
+          python3 - <<'PY'
+          import glob, sys
+          bad = []
+          for path in glob.glob('**/*.ps1', recursive=True):
+              data = open(path, 'rb').read()
+              if all(b <= 127 for b in data):
+                  continue
+              if data[:3] == b'\xef\xbb\xbf':
+                  continue
+              bad.append(path)
+          if bad:
+              print('以下脚本含非 ASCII 字节且无 UTF-8 BOM：' + ', '.join(bad))
+              sys.exit(1)
+          print('*.ps1 编码检查通过')
+          PY
+
+      - name: PowerShell 语法
+        shell: pwsh
+        run: |
+          $failed = $false
+          foreach ($script in (Get-ChildItem -Recurse -Filter *.ps1)) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $script.FullName, [ref]$null, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              Write-Host "在 $($script.Name) 里发现语法错误："
+              $errors | ForEach-Object { Write-Host $_ }
+              $failed = $true
+            }
+          }
+          if ($failed) { exit 1 }
+          Write-Host 'PowerShell 解析通过（全部 .ps1）'
+
+      - name: Issue 表单 YAML 可解析
+        run: |
+          python3 -c "import glob,yaml; [yaml.safe_load(open(f,encoding='utf-8')) for f in glob.glob('.github/ISSUE_TEMPLATE/*.yml')]; print('Issue 表单 OK')"
+
+  docs:
+    name: 文档与脱敏扫描
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: 文档自检
+        run: python3 tools/check-docs.py
+
+      # 凭据、安装日志原文、本机路径、内网 IP 与真实邮箱不该出现在仓里
+      - name: 敏感信息扫描
+        run: python3 tools/check-secrets.py

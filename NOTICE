@@ -1,0 +1,38 @@
+XiaomiPcManagerPatch
+Copyright 2026 M.Venn
+
+This product is licensed under the Apache License 2.0. See the LICENSE file in
+the repository root for the full text.
+
+==============================================================================
+Third-party software
+==============================================================================
+
+- wmi_spoof_msimg32.dll
+  A community-built WMI-spoofing proxy DLL (self-signed, author certificate
+  CN=ChsBuffer). It masquerades as msimg32.dll, gets loaded by
+  MiSmartShareHost and hooks WMI's CWbemObject::Get so that
+  Win32_BaseBoard.Manufacturer / .Product are reported as XIAOMI / TM2424.
+  Hooking is built on Microsoft Detours (https://github.com/microsoft/Detours).
+  This repository includes the binary **unmodified, as obtained from its
+  community distribution**; it is not rebuilt or patched here. Copyright and
+  all rights remain with its original author.
+
+- Xiaomi PC Manager (小米电脑管家)
+  Proprietary software of Xiaomi. NOT included in this repository and NOT
+  redistributed here; users must obtain the installer themselves. The patch
+  tools in this repository modify a locally installed copy at byte level and
+  write runtime configuration; no Xiaomi code is published from here.
+
+- Xiaomi, Mi, 小米电脑管家 and related names and marks belong to their
+  respective owners. This project is not affiliated with or endorsed by
+  Xiaomi.
+
+==============================================================================
+Logs and credentials
+==============================================================================
+
+This repository stores **no credentials and no install logs**. Installer and
+runtime logs (pcc_install_log.txt, install_log.txt) contain machine
+information and are excluded by .gitignore. See docs/DOC-RULES.md section 2
+for the redaction rules that apply to this repository.

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="512" height="512" role="img" aria-label="XiaomiPcManagerPatch">
+  <defs>
+    <linearGradient id="bg" gradientUnits="userSpaceOnUse" x1="54" y1="0" x2="54" y2="108">
+      <stop offset="0" stop-color="#2B3242"/>
+      <stop offset="1" stop-color="#161A22"/>
+    </linearGradient>
+    <linearGradient id="line" gradientUnits="userSpaceOnUse" x1="20" y1="88" x2="90" y2="20">
+      <stop offset="0" stop-color="#FFC24A"/>
+      <stop offset="1" stop-color="#FF6900"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="108" height="108" rx="24" ry="24" fill="url(#bg)"/>
+  <g stroke="url(#line)" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M22,24 L58,24 Q64,24 64,30 L64,54 Q64,60 58,60 L22,60 Q16,60 16,54 L16,30 Q16,24 22,24 Z" stroke-width="5"/>
+    <path d="M40,60 L40,70 M30,70 L50,70" stroke-width="5"/>
+    <path d="M40,34 L40,50 M32,42 L48,42" stroke-width="5"/>
+    <path d="M78,38 L88,38 Q94,38 94,44 L94,82 Q94,88 88,88 L78,88 Q72,88 72,82 L72,44 Q72,38 78,38 Z" stroke-width="5"/>
+    <path d="M80,45 L86,45 M80,81 L86,81" stroke-width="4"/>
+  </g>
+</svg>
