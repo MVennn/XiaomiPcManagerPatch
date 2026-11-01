@@ -38,7 +38,7 @@
 | 仓库根 [CONTRIBUTING.md](../CONTRIBUTING.md) | 参与贡献：怎么跑起来、改脚本守什么规矩、提交前跑什么 |
 | 仓库根 [SECURITY.md](../SECURITY.md) | 安全策略：安全问题怎么报、这套补丁会改机器哪些状态、第三方 DLL 提示 |
 | 仓库根 [CHANGELOG.md](../CHANGELOG.md) | 开发者记录；**版本号本身**在这里维护，**进位规则**见 [VERSIONING.md](VERSIONING.md) |
-| 仓库根 [PROGRESS.md](../PROGRESS.md) | 本仓进度台账（追加式批次日志，不入库） |
+| 仓库根 `PROGRESS.md` | 本仓进度台账（追加式批次日志）；**刻意不入库**，只存在于本地工作区，故此处不设链接 |
 | 仓库根 [NOTICE](../NOTICE) | 第三方声明：WMI 伪装 DLL 的来源与版权 |
 | 仓库根 [LICENSE](../LICENSE) | 许可证全文（**Apache-2.0**） |
 | [release-notes/](release-notes/README.md) | 面向使用者的 Release 说明，**文件名 = 版本号**（不带 `v` 前缀）；格式规范在它的 README |
