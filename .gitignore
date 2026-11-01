@@ -1,0 +1,24 @@
+# ---- 安装/运行日志（pcc_install_log.txt 为 2MB 安装日志，含机器信息，绝不入库）----
+pcc_install_log.txt
+install_log.txt
+*.log
+
+# ---- 补丁过程产物 ----
+*_patched.exe
+*.bak
+*.bak-padgate
+
+# ---- 本机私有配置 ----
+config.local.*
+*.local.json
+secrets.*
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+
+# ---- 系统与编辑器 ----
+Thumbs.db
+.DS_Store
+desktop.ini
