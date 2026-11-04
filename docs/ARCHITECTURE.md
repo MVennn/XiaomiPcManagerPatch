@@ -21,14 +21,14 @@
 
 ### 2.1 安装包白名单补丁（xpm_patch.py patch-installer）
 
-在安装包里定位内嵌清单的机型白名单，把本机型号**等长替换**进去——字节长度不变，程序代码零改动。输出到 `-o` 指定的 `*_patched.exe`，原始安装包不碰。
+在安装包里定位内嵌清单的机型白名单，把本机型号**等长替换**进去——字节长度不变，程序代码零改动。输出到 `-o` 指定的 `*_patched.exe`；`-o` 与输入同路径时原地改写（先备份 `.bak`），其他情况原始安装包不碰。
 
 ### 2.2 运行时机型伪装（xpm_patch.py patch-installed / set-model）
 
 - `dummy_pc_model` 写到 `HKCU` / `HKLM` 的
   `SOFTWARE\Timi Personal Computing\MiScreenShare` 与 `SOFTWARE\MI\MiScreenShare`
   （各含 WOW6432Node 视图），这是 `MiScreenShare` 上报机型时读的值；
-- `ProductModel=TM2309` 写到 `SOFTWARE\MI\Driver`（含 WOW6432Node），并停用
+- `ProductModel=TM2309` 写到 `SOFTWARE\MI\MiDeviceService`（含 WOW6432Node），并停用
   `MiDeviceService` —— 否则它启动时会把真实型号写回去；
 - 给已安装的 `Uninstall.exe` 打同样的白名单补丁（先备份 `.bak`），保证以后能正常卸载。
 

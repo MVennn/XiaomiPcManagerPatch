@@ -197,6 +197,7 @@ def patch_file_manifest(path, models, out_path=None):
 
 def get_real_models():
     ps = (
+        "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; "
         "$m=@(); "
         "try{$m+=(Get-CimInstance Win32_ComputerSystem).Model}catch{}; "
         "try{$m+=(Get-CimInstance Win32_BaseBoard).Product}catch{}; "

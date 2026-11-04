@@ -5,6 +5,17 @@
 
 本仓对外可见的重要变更记录在此。格式参考 Keep a Changelog。
 
+## [未发布]
+
+### 中文系统编码与文档订正（2026-11-04）
+
+- `xpm_patch.py` 读取本机型号时给 PowerShell 命令加
+  `[Console]::OutputEncoding=[System.Text.Encoding]::UTF8`（原先按 UTF-8 解码 cp936 输出，
+  中文 DMI 机型字符串会乱码/删空，白名单失效或误报「WMI 返回空」）
+- `docs/TOOLS.md` 订正 `-o` 与输入同路径的实际行为（原地改写 + 先备份 `.bak`，不是「拒绝」）
+- `docs/ARCHITECTURE.md` 订正 `ProductModel` 落点（`SOFTWARE\MI\MiDeviceService`，
+  不是 `SOFTWARE\MI\Driver`）
+
 ## [0.1.0] - 2026-11-01
 
 面向用户的说明见 [docs/release-notes/0.1.0.md](docs/release-notes/0.1.0.md)。
