@@ -25,6 +25,9 @@ import xml.etree.ElementTree as ET
 import numpy as np
 from PIL import Image, ImageChops, ImageDraw, ImageFont
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")
+
 SVG_NS = "{http://www.w3.org/2000/svg}"
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -636,7 +639,7 @@ def build_preview(icon_svg):
 def main():
     preview_only = "--preview-only" in sys.argv
     if not os.path.exists(ICON_SVG):
-        print("✗ 找不到 %s" % ICON_SVG)
+        print("[FAIL] 找不到 %s" % ICON_SVG)
         return 1
     if not preview_only:
         logo = render_icon(ICON_SVG, 512, ss=3)

@@ -96,3 +96,16 @@
 - **现象**：`exception 3` 消失、P2P 通道建立，但平板端应用层无响应（`NtbsOnChannelFailed`）。
 - **根因**：平板端对当前版本协同通道没有响应——对照机同样复现，与本机网卡无关（截至 6.0.0.39 实测）。
 - **怎么避**：等平板侧「小米互联」更新后重测；进展记录在 [RESEARCH.md](RESEARCH.md) §6。
+
+## 工具脚本
+
+### 门禁脚本在 GBK 控制台下抛 `UnicodeEncodeError`，退出码 1
+
+- **现象**：Windows 中文控制台（cp936）跑 `python -I tools/make_social_preview.py` / 门禁脚本，
+  打结论的那一行抛 `UnicodeEncodeError: 'gbk' codec can't encode character`，脚本以退出码 1 结束。
+- **根因**：`✓` U+2713 / `✗` U+2717 不在 cp936 码表；`python -I` 忽略 `PYTHONIOENCODING` /
+  `PYTHONUTF8`，环境变量救不回来。
+- **怎么避**：结论行只用 ASCII（`[OK]` / `[FAIL]`）；入口加
+  `if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(errors="replace")` 兜底。
+  同一问题首次记录见 ZcodeAIModels 仓「踩坑总汇」第 36 节（跨仓引用，非本仓路径）。
+- **验证**：`python -I` 重跑同一命令 → 退出码 0、无 traceback。
