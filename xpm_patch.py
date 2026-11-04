@@ -36,7 +36,7 @@ import sys
 import winreg
 
 LISTS = ["support_tm_list", "support_nfc_list", "support_distfile_list"]
-DEFAULT_INSTALL_ROOT = r"C:\Program Files\MI\XiaomiPCManager"
+DEFAULT_INSTALL_ROOT = os.environ.get("XPM_INSTALL_ROOT", r"C:\Program Files\MI\XiaomiPCManager")
 SPOOF_FALLBACK = "TM2424"
 REG_SUBKEYS = [
     r"SOFTWARE\Timi Personal Computing\MiScreenShare",
@@ -149,7 +149,8 @@ def patch_manifest_bytes(raw, models):
 
 
 def patch_file_manifest(path, models, out_path=None):
-    data = open(path, "rb").read()
+    with open(path, "rb") as f:
+        data = f.read()
     menus = find_manifests(data)
     if not menus:
         raise SystemExit("未在 %s 中找到内嵌清单（可能不是小米电脑管家安装包）" % path)
@@ -243,6 +244,7 @@ def _del_value(root, subkey, name, wow=0):
 
 def set_spoof_model(model):
     ok = []
+    miss = 0
     hives = [(winreg.HKEY_CURRENT_USER, "HKCU"), (winreg.HKEY_LOCAL_MACHINE, "HKLM")]
     for root, label in hives:
         for wow in (0, winreg.KEY_WOW64_32KEY, winreg.KEY_WOW64_64KEY):
@@ -250,12 +252,17 @@ def set_spoof_model(model):
                 # 64 位视图和 32 位视图都写一遍
                 if _set_value(root, sk, "dummy_pc_model", model, wow):
                     ok.append("%s\\%s(wow=%d)" % (label, sk, wow))
+                else:
+                    miss += 1
     # 清掉早期测试用的 MockProduct，避免影响驱动更新
     for root, label in hives:
         for sk in (r"SOFTWARE\MI\Driver", r"SOFTWARE\WOW6432Node\MI\Driver"):
             for wow in (0, winreg.KEY_WOW64_32KEY):
                 _del_value(root, sk, "MockProduct", wow)
     print("已写 dummy_pc_model=%s 到 %d 处" % (model, len(ok)))
+    if miss:
+        print("警告: %d 处写入失败（HKLM 需要管理员权限）；普通权限运行只写 HKCU，伪装不完整" % miss,
+              file=sys.stderr)
     for line in ok[:8]:
         print("  " + line)
 

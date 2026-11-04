@@ -31,7 +31,7 @@
 
 - **现象**：电脑管家自动更新 / 修复后，原来能用的功能不行了。
 - **根因**：更新会写回原版清单与配置，覆盖机型伪装。
-- **怎么避**：重跑 `.\Install-XiaomiPCManager.ps1 -ModelOnly`（只恢复伪装，不重装）。
+- **怎么避**：重跑 `.\Install-XiaomiPCManager.ps1 -ModelOnly`（只重做伪装相关动作：注册表、WMI DLL、服务参数与 padgate 补丁，不重装）。
 
 ### ProductModel 又变回真实型号
 

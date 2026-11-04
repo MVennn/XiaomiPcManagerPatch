@@ -160,6 +160,7 @@ $svcKey = 'HKLM:\SYSTEM\CurrentControlSet\Services\micont_service'
 if (Test-Path $svcKey) {
   $ip = (Get-ItemProperty $svcKey -ErrorAction SilentlyContinue).ImagePath
   if ($ip -and ($ip -notmatch '--model=0')) {
+    Log "原 micont_service ImagePath: $ip"
     $newIp = $ip.Trim() + ' --model=0'
     New-ItemProperty -Path $svcKey -Name ImagePath -PropertyType ExpandString -Value $newIp -Force | Out-Null
     Log "已给 micont_service 增加 --model=0（通用 PC 模式）"

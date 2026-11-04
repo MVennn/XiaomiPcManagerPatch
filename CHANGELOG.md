@@ -16,6 +16,18 @@
 - `docs/ARCHITECTURE.md` 订正 `ProductModel` 落点（`SOFTWARE\MI\MiDeviceService`，
   不是 `SOFTWARE\MI\Driver`）
 
+### P3 清理（2026-11-04 审查遗留项）
+
+- `xpm_patch.py` / `padgate_patch.py` 安装根支持 `XPM_INSTALL_ROOT` 环境变量覆盖
+  （自定义安装路径不再不可用）
+- `set_spoof_model` 对写入失败计数并在 stderr 告警（非管理员时 HKLM 写不进去，
+  不再只打印「已写 N 处」的半成品）
+- `Install-XiaomiPCManager.ps1` 改 `micont_service` ImagePath 前把原值写进日志
+- `docs/ARCHITECTURE.md` / `docs/PITFALLS.md` 订正 `-ModelOnly` 的实际范围
+  （含 4.5/4.6/4.65：WMI DLL、服务参数、padgate 补丁）
+- `.gitignore` 挡原版安装包名（`XiaomiPCManager*.exe`）
+- 两处 `open().read()` 改 `with` 上下文（`xpm_patch.py` / `padgate_patch.py`）
+
 ## [0.1.0] - 2026-11-01
 
 面向用户的说明见 [docs/release-notes/0.1.0.md](docs/release-notes/0.1.0.md)。

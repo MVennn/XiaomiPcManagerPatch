@@ -37,7 +37,7 @@ import shutil
 import subprocess
 import sys
 
-ROOT = r"C:\Program Files\MI\XiaomiPCManager"
+ROOT = os.environ.get("XPM_INSTALL_ROOT", r"C:\Program Files\MI\XiaomiPCManager")
 BACKUP_SUFFIX = ".bak-padgate"
 
 # call rel32 + cmp eax,1 + jle + 后续固定指令
@@ -88,7 +88,8 @@ def stop_holders():
 
 
 def status(path):
-    data = open(path, "rb").read()
+    with open(path, "rb") as f:
+        data = f.read()
     parts = []
     for name, orig, patched, *_ in PATCHES:
         o, p = len(orig.findall(data)), len(patched.findall(data))
@@ -105,7 +106,8 @@ def status(path):
 
 
 def apply_patch(path):
-    data = bytearray(open(path, "rb").read())
+    with open(path, "rb") as f:
+        data = bytearray(f.read())
     changed = 0
     for name, orig, patched, delta, old, new in PATCHES:
         hits = list(orig.finditer(data))
