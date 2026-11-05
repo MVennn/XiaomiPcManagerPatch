@@ -71,6 +71,50 @@
 - **根因**：发现主要靠 BLE 广播；不在小米支持列表的无线网卡（如 MediaTek MT7902）主广播被禁，只剩 mDNS。机型伪装是必要条件不是充分条件。
 - **怎么避**：换 Intel AX201/AX210 等受支持网卡；不换硬件就接受「从电脑端发起」的用法。A/B 对照见 [RESEARCH.md](RESEARCH.md) §5。
 
+## 小米互传
+
+### 「传输失败 / 传输遇到问题，请重试」（error 404 / 36018）
+
+- **现象**：电脑管家「传输列表」里任务立刻变红，提示「传输失败 / 传输遇到问题，请重试」；
+  设备能被发现、文件选择也正常，但发送进度从没开始。
+- **根因**：`micont_service --model=0`（通用 PC 模式）把 Lyra 的 WiFi P2P 能力上报成 0，
+  互传通道 `com.miui.mishare.connectivity:miLyraShareTransfer` 在 P2P 协商阶段直接被拒：
+  `err_code=36018 "p2p nego wifi capability not supported"` -> `task set error 404` -> `kFailed`。
+  日志里同一时刻有 `wifi_capabilities=0` 与 `netcard_medium_type=0`，与无线网卡本身是否支持
+  Wi-Fi Direct 无关（`netsh wlan show wirelesscapabilities` 可验）。轮转日志里能进 `kFileSending`
+  的旧记录与全量 404 的新记录形成 A/B 对照，见 [RESEARCH.md](RESEARCH.md) §7。
+- **怎么避**：把服务 `ImagePath` 的 `--model=0` 换成 `--model=TM2424`（或 `TM2309`）后重启
+  `micont_service`，P2P 能力恢复；取舍见 [ARCHITECTURE.md](ARCHITECTURE.md) §2.5。
+  别再跑 `Install-XiaomiPCManager.ps1 -ModelOnly`，它会把 `--model=0` 写回去；管家自动更新
+  覆盖后重做这一组即可。
+
+### 右键「使用小米互传发送」点击无反应
+
+- **现象**：右键文件能看到「使用小米互传发送」，点击后什么也不发生，互传窗口不弹、日志里
+  也没有右键来源的 `HandleCreateSendTask`。
+- **根因**：这是 Win11 新右键下的 COM 激活链断点，不是单点故障——
+  ① 菜单键 `HKCR\*\shell\MiDropExtMenu` 与 `HKCR\Directory\shell\MiDropExtMenu` 带
+     `LegacyDisable`，传统动词只落到「显示更多选项」；
+  ② `ExplorerCommandHandler` 指向的 CLSID `{504d69c0-...}` 未登记进
+     `Shell Extensions\Approved`，`tasklist /m MiDropShellExt.dll` 零进程加载；
+  ③ 菜单文案来自 MSIX 包（`Windows.ShareTarget` + `PackagedCom\Server\0`），但该 CLSID
+     在 `PackagedCom\ClassIndex` 下没有条目，Win32 COM 与 MSIX 两套注册未打通；
+  ④ `MiDropShellExt.dll` 用 `CreateProcessW` 启动同目录 `\Launch.exe --contextmenu_dropfile=1`，
+     而版本目录 `<版本号>\MiSmartShare\Launch.exe` 缺失（根目录 `Launch.exe` 不处理该参数）。
+- **怎么避**：立即可用的入口是「显示更多选项」（或 `Shift+F10`）与系统共享菜单里的
+  「小米互传」；要让旧动词可用，把根目录 `Launch.exe` 复制到 `MiSmartShare\` 与版本目录、
+  把该 CLSID 补进 `Shell Extensions\Approved`、重启 `explorer.exe`。一级新菜单需补
+  PackagedCom 映射或装适配组件（社区实测见 [RESEARCH.md](RESEARCH.md) §7）。
+
+### `ProductModel` 的 64 位视图被回写成真实主板型号
+
+- **现象**：`reg query "HKLM\SOFTWARE\MI\MiDeviceService" /v ProductModel /reg:64` 是真实
+  主板型号，`/reg:32` 与 `WOW6432Node` 却是脚本写入的 `TM2309`。
+- **根因**：`MiDeviceService` 已停用，但外部 `MiService` 仍运行；一键脚本只写了 32 位视图
+  与 `WOW6432Node`，64 位视图由其它进程按真实硬件回写。
+- **怎么避**：需要全视图一致时，管理员执行
+  `reg add "HKLM\SOFTWARE\MI\MiDeviceService" /v ProductModel /t REG_SZ /d TM2309 /reg:64 /f`。
+
 ## 平板镜像
 
 ### 「已连接其他显示设备，请断开其他显示设备后重试」（exception 1）

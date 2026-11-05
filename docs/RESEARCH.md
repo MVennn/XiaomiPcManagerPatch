@@ -92,3 +92,58 @@ RequestConnectPhysServer success ... target medium:20(p2p)
 在对照机（联想 81Y7，Intel AX201）上同一个 synergy 通道也返回 `code:3`——
 所以不是本机 MT7902 网卡或信任记录的问题，而是平板端对这个版本的协同通道没有响应。
 下一步：在平板上操作 / 升级「小米互联」，或换一台系统版本匹配的平板验证。
+
+## 7. 互传传输失败与右键菜单的实况定位（截至 6.0.0.39）
+
+2026-11-05 实机复现（电脑管家 6.0.0.39 + HyperOS 手机）。设备能被发现、文件选择正常，
+任务却立刻失败；三处日志对齐同一条因果链：
+
+```text
+%ProgramData%\MI\AIoT\Log\smart_share_log.txt
+  send file CreateChannel com.miui.mishare.connectivity, conn_medium_type=32, send_channel_id_=13, err_code=0
+  OnChannelCreateFailed ... err_code=36018 MiContGetErrMsg="p2p nego wifi capability not supported"
+  task set error 404
+  task_id 20913 set state 6, kFailed
+
+%ProgramData%\MI\Lyra\Log\micont_service_micont_*.log
+  SetLogiConnCapsPriorityType ... netcard_medium_type=0, wifi_capabilities=0
+  ServerClientSelectorP2P::ExecuteByLocal ... err=36018, err_msg="p2p nego wifi capability not supported"
+  NtbsOnChannelFailed ... svc=com.miui.mishare.connectivity:miLyraShareTransfer, errmsg="p2p nego wifi capability not supported"
+```
+
+### 传输失败：`--model=0` 关掉 P2P
+
+当时 `micont_service` 的 `ImagePath` 带 `--model=0`；本机无线网卡（MediaTek Wi-Fi 6E
+MT7902）在 `netsh wlan show wirelesscapabilities` 里 Wi-Fi Direct Device / GO / Client
+与 P2P Device Discovery 均为 `Supported`，排除硬件。轮转日志 A/B：
+
+| 日志 | `kFileSending` | `error 404` | `36018` |
+|---|---|---|---|
+| `smart_share_log_2.txt`（10/22–10/27） | 4 | 0 | 0 |
+| `smart_share_log_1.txt`（10/27–10/30） | 3 | 1 | 13 |
+| `smart_share_log.txt`（11/05） | 0 | 12 | 5 |
+
+把 `--model=0` 换成 `--model=TM2424`（或 `TM2309`）后重启服务即可恢复互传 P2P；
+取舍见 [ARCHITECTURE.md](ARCHITECTURE.md) §2.5、修复见 [PITFALLS.md](PITFALLS.md) 的「小米互传」。
+同账号只用于自动信任/自动接收，官方硬性条件是蓝牙 + WLAN + 互传开关（HyperOS 能力页 ab0001），
+Windows 通用版另要求同一局域网（ab0019）；本仓 6.x 路线由 Wi-Fi LAN / P2P 承载。
+
+### 右键菜单：Win32 COM 与 MSIX 两套注册未打通
+
+菜单键 `HKCR\*\shell\MiDropExtMenu` 与 `HKCR\Directory\shell\MiDropExtMenu` 只有
+`ExplorerCommandHandler={504d69c0-cb52-48df-b5b5-7161829fabc8}` 与空值 `LegacyDisable`，
+无 `command` 子键；CLSID 的 `InprocServer32` 指向
+`<版本号>\MiSmartShare\MiDropShellExt.dll`（x64、73304 字节、签名有效、路径存在）。
+DLL 内 UTF-16 字符串含 `\Launch.exe`、`--contextmenu_dropfile=1`、
+`Local\MiDropFileMappingObject`、`parent_dir:`，而 `MiSmartShare\Launch.exe` 缺失；
+根目录 `Launch.exe`（6.0.0.39、326232 字节）存在但不处理该参数。
+
+菜单文案来自 MSIX 包 `5f71dad9-..._1.0.11.0_x64__h7hff4v7bt4z0`：
+`Windows.ShareTarget\...\XiaomiShare` 注册 `SupportedFileTypes *`，
+`PackagedCom\Package\...\Server\0` 注册 `DisplayName MiDropShellExt`，但
+`PackagedCom\ClassIndex\{504d69c0-...}` 缺失（只有 surrogate CLSID 的条目），且该 CLSID
+未进 `Shell Extensions\Approved`，`tasklist /m MiDropShellExt.dll` 零进程加载。
+结论：Win11 新右键下传统动词降级 + COM 激活链断点 + MSIX 映射未关联，点击静默失败。
+社区（52pojie 2024-06）同样记录「新版电脑管家没适配 Win11 新右键」，需开发者模式 +
+适配组件或自写 MSIX 包；本机实测与该结论一致。立即可用入口是「显示更多选项」/
+`Shift+F10` 与系统共享菜单里的「小米互传」。

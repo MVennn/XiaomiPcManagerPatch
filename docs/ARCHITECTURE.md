@@ -61,8 +61,11 @@
 ### 2.5 `--model=0` 的取舍
 
 `micont_service --model=0` 让手机妙享桌面可用，但会让 Lyra 的 WiFi P2P 能力变成 0
-（平板镜像失败）；`--model=TM2424/TM2309` 则 P2P 正常。一键脚本写的是 `--model=0`
-（手机优先）。平板镜像定位与剩余问题见 [RESEARCH.md](RESEARCH.md)。
+（平板镜像失败，**小米互传也一并失败**：通道协商报 `36018`、任务回落 `error 404`）；
+`--model=TM2424/TM2309` 则 P2P 正常，互传能进 `kFileSending`。一键脚本写的是
+`--model=0`（手机优先），所以默认状态下互传不可用——实测与日志链见
+[RESEARCH.md](RESEARCH.md) §7，修复与取舍见 [PITFALLS.md](PITFALLS.md) 的「小米互传」。
+平板镜像定位与剩余问题见 [RESEARCH.md](RESEARCH.md)。
 
 ## 3. 会改什么
 
