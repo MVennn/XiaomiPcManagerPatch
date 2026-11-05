@@ -31,3 +31,7 @@ Thumbs.db
 .DS_Store
 desktop.ini
 .work/
+
+# ---- DSH 会话文件认领审计（本地产物，不入库）----
+.dsh-file-claim.audit.jsonl
+*.dshclaim
