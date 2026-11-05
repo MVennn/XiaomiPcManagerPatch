@@ -83,10 +83,23 @@
   日志里同一时刻有 `wifi_capabilities=0` 与 `netcard_medium_type=0`，与无线网卡本身是否支持
   Wi-Fi Direct 无关（`netsh wlan show wirelesscapabilities` 可验）。轮转日志里能进 `kFileSending`
   的旧记录与全量 404 的新记录形成 A/B 对照，见 [RESEARCH.md](RESEARCH.md) §7。
-- **怎么避**：把服务 `ImagePath` 的 `--model=0` 换成 `--model=TM2424`（或 `TM2309`）后重启
-  `micont_service`，P2P 能力恢复；取舍见 [ARCHITECTURE.md](ARCHITECTURE.md) §2.5。
-  别再跑 `Install-XiaomiPCManager.ps1 -ModelOnly`，它会把 `--model=0` 写回去；管家自动更新
-  覆盖后重做这一组即可。
+- **怎么避**：两步都要做，缺一不可。
+  ① 服务 `ImagePath` 把 `--model=0` 换成 `--model=TM2309`（或 `TM2424`），管理员执行：
+  ```text
+  sc config micont_service binPath= "\"C:\Program Files\MI\XiaomiPCManager\<版本号>\MiSmartShare\micont_service.exe\" --model=TM2309"
+  ```
+  ② `ProductModel` 的 64 位视图单独写一遍（见下面「64 位视图被回写」一节），32 位视图对
+  64 位服务无效：
+  ```text
+  reg add "HKLM\SOFTWARE\MI\MiDeviceService" /v ProductModel /t REG_SZ /d TM2309 /reg:64 /f
+  ```
+  ③ `Restart-Service micont_service`，等 Lyra 日志重新出现 `OnTrustedDeviceOnline` 再试。
+- **这一步做完之后的新失败码（2026-11-05 15:51 实测）**：`36018` 消失，改用 CLI 发 13 字节测试文件，
+  日志变成 `OnChannelCreateFailed ... err_code=15033 MiContGetErrMsg="logical conn remote confirm timeout"`
+  → `task set error 404`。也就是 P2P 能力这一层已经通了，卡在**手机端的通道确认**没回来。
+  此时电脑侧没有可改的开关：要在手机上保持解锁、停在互传界面，或把接收模式设成自动接收，再重发。
+  取舍见 [ARCHITECTURE.md](ARCHITECTURE.md) §2.5。别再跑 `Install-XiaomiPCManager.ps1 -ModelOnly`，
+  它会把 `--model=0` 写回去；管家自动更新覆盖后重做这一组即可。
 
 ### 右键「使用小米互传发送」点击无反应
 
@@ -101,10 +114,34 @@
      在 `PackagedCom\ClassIndex` 下没有条目，Win32 COM 与 MSIX 两套注册未打通；
   ④ `MiDropShellExt.dll` 用 `CreateProcessW` 启动同目录 `\Launch.exe --contextmenu_dropfile=1`，
      而版本目录 `<版本号>\MiSmartShare\Launch.exe` 缺失（根目录 `Launch.exe` 不处理该参数）。
-- **怎么避**：立即可用的入口是「显示更多选项」（或 `Shift+F10`）与系统共享菜单里的
-  「小米互传」；要让旧动词可用，把根目录 `Launch.exe` 复制到 `MiSmartShare\` 与版本目录、
-  把该 CLSID 补进 `Shell Extensions\Approved`、重启 `explorer.exe`。一级新菜单需补
-  PackagedCom 映射或装适配组件（社区实测见 [RESEARCH.md](RESEARCH.md) §7）。
+- **怎么避**：**复制根目录 `Launch.exe` 是无效修法**（2026-11-05 实测：`MiSmartShare\Launch.exe
+  --contextmenu_dropfile=1` 启动后秒退、无窗口；根目录 `Launch.exe` 的字符串里只有
+  `XiaomiPCManager.exe`，根本不解析 `--contextmenu_dropfile`，它只是启动器）。
+  `MiDropShellExt.dll` 期望的 `MiSmartShare\Launch.exe` 在 6.0.0.39 安装包里就不存在，
+  这是小米侧的缺件，不是本机配置问题。
+- **实际可用的修法（已落地）**：绕开 `MiDropShellExt.dll`，把 `MiDropExtMenu` 这个传统动词
+  直接指向电脑管家自带的 CLI。`xpmcli.exe` 暴露了 `smartshare.midrop.send`（`--device-id` +
+  `--file`，可重复），经命名管道 `xpm2_mi_smart_share_host_thrift_v1` 调管家；普通用户上下文
+  下可用，从提权/受限上下文调用会报 `RPC_CONNECT_FAILED: Unable to open pipe`。
+  注册表改法（管理员）：
+  ```text
+  HKCR\*\shell\MiDropExtMenu            : 删 ExplorerCommandHandler 与 LegacyDisable
+  HKCR\Directory\shell\MiDropExtMenu     : 同上
+  两项都加 MUIVerb = 使用小米互传发送
+  HKCR\*\shell\MiDropExtMenu\command    = powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "<安装根>\midrop-send.ps1" "%1"
+  ```
+  转发脚本 [../tools/midrop-send.ps1](../tools/midrop-send.ps1) 负责列设备（多台时弹选择框）、
+  调 `smartshare.midrop.send`，失败弹框说明原因。
+- **CLI 输出解析坑（2026-11-05 实测踩到）**：`xpmcli` 的 JSON 走 stdout，进程日志走 stderr。
+  用 `& $cli ... 2>&1 | Select-Object -Last 1` 取「最后一行」拿到的是带时间戳的日志行
+  （`[2026-11-05 15:52:35.xxx] [pid ...] [info] ...`），`ConvertFrom-Json` 直接抛
+  `无效的 JSON 基元: 2026-11-05`，脚本于是永远判定「没有发现设备」。必须写 `2>$null`。
+- **设备字段坑**：`devices[]` 里 `deviceId` 是空字符串，真正的 uint32 在 `id`（如 `2103931608`
+  = `0x7D6772D8`，与 Lyra 日志的 `device_id` 一致）。脚本要 `if (-not $deviceId) { $deviceId = $picked.id }`。
+- **设备发现是异步的**：主程序刚起时首次查询返回 `devices:[]`，同一条命令十余秒后才有值，
+  脚本需重试若干次再报错。Win11 下传统动词落在「显示更多选项」
+  （`Shift+F10`）里，一级新菜单仍需 PackagedCom 映射或适配组件
+  （社区实测见 [RESEARCH.md](RESEARCH.md) §7）。
 
 ### `ProductModel` 的 64 位视图被回写成真实主板型号
 
