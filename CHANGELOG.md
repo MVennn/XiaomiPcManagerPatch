@@ -7,6 +7,25 @@
 
 ## [未发布]
 
+### 互传修复真正落地 + 右键菜单改走 CLI（2026-11-05）
+
+- 上一轮（7d7bbda）只做了只读诊断并把结论写进文档，**系统侧一处未改**：`micont_service`
+  的 `ImagePath` 到 2026-11-05 15:31 仍是 `--model=0`，所以「修了还是不行」。
+- 本轮实际执行：`--model=0` → `--model=TM2309`、`ProductModel` 64 位视图补写 `TM2309`、
+  重启 `micont_service`，Lyra 日志重新出现 `OnTrustedDeviceOnline`。
+- 右键菜单：实测证明「复制根目录 `Launch.exe` 到 `MiSmartShare\`」无效（秒退、无窗口），
+  根目录 `Launch.exe` 不解析 `--contextmenu_dropfile`；`MiSmartShare\Launch.exe` 在
+  6.0.0.39 包里本就缺失。改为把 `MiDropExtMenu` 传统动词指向新增的
+  [tools/midrop-send.ps1](tools/midrop-send.ps1)，由 `xpmcli.exe smartshare midrop send`
+  完成发送；`ExplorerCommandHandler` 与 `LegacyDisable` 一并移除。
+- 订正 [docs/PITFALLS.md](docs/PITFALLS.md) 互传两节：传输失败补齐「64 位视图」这一步，
+  右键节改写为实测结论 + CLI 修法。
+- 转发脚本改为**弹窗形态**（[tools/midrop-send.ps1](tools/midrop-send.ps1)）：设备列表 +
+  待发送文件 + 发送/刷新/取消 + 状态行，发送后查 `task status` 回填结果；纯 CLI 静默发送
+  时用户看不到任何窗口，实测反馈「传能传但拉不出窗口」。
+- 另实测：主界面 `小米电脑管家` 本身可以正常拉起——隐藏窗口后用快捷方式目标
+  `XiaomiPCManager.exe` 再启动一次，窗口自动恢复可见（`visible after relaunch: True`）。
+
 ### 互传排障结论沉淀（2026-11-05）
 
 - [docs/PITFALLS.md](docs/PITFALLS.md) 新增「小米互传」三节：传输失败（error 404 / 36018）、
