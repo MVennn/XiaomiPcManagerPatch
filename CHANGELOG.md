@@ -7,6 +7,17 @@
 
 ## [未发布]
 
+### 互传排障结论沉淀（2026-11-05）
+
+- [docs/PITFALLS.md](docs/PITFALLS.md) 新增「小米互传」三节：传输失败（error 404 / 36018）、
+  右键「使用小米互传发送」无反应、`ProductModel` 64 位视图被回写。
+- [docs/RESEARCH.md](docs/RESEARCH.md) 新增 §7：2026-11-05 实机日志链、轮转日志 A/B 表、
+  Win32 COM 与 MSIX 双注册断点的实况定位。
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §2.5 补明 `--model=0` 同时让互传失败，
+  不只平板镜像（取舍从「手机优先」扩到「互传/镜像优先」）。
+- `.gitignore` 忽略 DSH 会话文件认领审计产物。
+- 全程只读诊断，未改服务 / 注册表 / DLL；修复命令与验证方法写在 PITFALLS 三节里。
+
 ### 门禁脚本 GBK 控制台自毁修复（2026-11-04）
 
 - 同一口径覆盖 `tools/check-docs.py` / `tools/check-secrets.py`：原先用 `reconfigure(encoding="utf-8")` 兜底，在 GBK 控制台反而把中文打成乱码，
